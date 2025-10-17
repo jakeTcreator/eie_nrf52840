@@ -1,81 +1,53 @@
+/*
+ * main.c
+ */
+
 #include <zephyr/kernel.h>
+#include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
+#include <inttypes.h>
 
-#define LED0_NODE DT_ALIAS(led0)
-#define LED1_NODE DT_ALIAS(led1)
-#define LED2_NODE DT_ALIAS(led2)
-#define LED3_NODE DT_ALIAS(led3)
+#define SLEEP_TIME_MS 1000
 
+#define SW0_NODE DT_ALIAS(sw0)
+static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(SW0_NODE, gpios);
 
+static struct gpio_callback button_isr_data;
 
-static const struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+void button_isr(const struct device *dev, struct gpio_callback *cb, uint32_t pins){
+	printk("Button 0 pressed!\n");
+}
 
-static const struct gpio_dt_spec led1 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
+int main(void) {
+  int ret;
 
-static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(LED2_NODE, gpios);
+  if(!gpio_is_ready_dt(&button)){
+	printk("GPIO is NOT ready!\n");
+    return 0;
+  }
 
-static const struct gpio_dt_spec led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpios);
-int main(void){
-	int ret;
-	int ret1;
-	int ret2;
-	int ret3;	
+  ret = gpio_pin_configure_dt(&button, GPIO_INPUT);
+  if (0 > ret){
+	printk("Config failed!\n");
+  	return 0;
+  }
 
-	if(!gpio_is_ready_dt(&led0)) {
-		return -1;
-	}
+  ret = gpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+  if (0 > ret){
+	printk("Interrupt config failed!\n");
+  	return 0;
+  }
 
-	if(!gpio_is_ready_dt(&led1)) {
-		return -1;
-	}
-
-	if(!gpio_is_ready_dt(&led2)) {
-		return -1;
-	}
-
-	if(!gpio_is_ready_dt(&led3)) {
-		return -1;
-	}
-
-	ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) {
-		return ret;
-	}
-
-	
-
-	ret1 = gpio_pin_configure_dt(&led1, GPIO_OUTPUT_ACTIVE);
-	if (ret1 < 0) {
-		return ret1;
-	}
-
-
-	ret2 = gpio_pin_configure_dt(&led2, GPIO_OUTPUT_ACTIVE);
-	if (ret2 < 0) {
-		return ret2;
-	}
-
-
-	ret3 = gpio_pin_configure_dt(&led3, GPIO_OUTPUT_ACTIVE);
-	if (ret3 < 0) {
-		return ret3;
-	}
-	while (1) {
-		gpio_pin_set_dt(&led0, 1);			
-		k_msleep(1000);
-		gpio_pin_set_dt(&led0, 0);		
-		gpio_pin_set_dt(&led1, 1);
-
-		k_msleep(1000);
-		gpio_pin_set_dt(&led1, 0);
-		gpio_pin_set_dt(&led3, 1);
-
-		k_msleep(1000);
-		gpio_pin_set_dt(&led3, 0);
-		gpio_pin_set_dt(&led2, 1);
-		k_msleep(1000);
-		gpio_pin_set_dt(&led2, 0);
-	}
-
-	return 0;
+  gpio_init_callback(&button_isr_data, button_isr, BIT(button.pin));
+  gpio_add_callback(button.port, &button_isr_data);
+  while(1) {
+	/*ret = gpio_pin_get_dt(&button);
+	if (0 < ret){
+	  printk("Pressed!\n");
+  	}
+	k_msleep(SLEEP_TIME_MS);
+	*/
+  }
+  return 0;
 }
